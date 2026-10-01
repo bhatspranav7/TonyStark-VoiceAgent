@@ -66,6 +66,16 @@ uv run friday-voice
 Open <http://127.0.0.1:8000> in Chrome or Edge, click **ENGAGE**, allow the microphone,
 and say "catch me up".
 
+## Waking FRIDAY and putting her to sleep
+
+- **Wake:** click **ENGAGE** on the HUD. She joins, greets you and starts listening.
+- **Sleep:** say "go to sleep", "stand by" or "stop listening". She confirms, then ignores
+  everything she hears. The HUD shows *Asleep*.
+- **Wake again:** say "Friday" or "wake up" (for example "Friday, what's the news?").
+- **Stop completely:** click **Disconnect**, or mute the microphone with **Mute mic**.
+
+Typed messages follow the same rules. The phrases are in [src/friday/wake.py](src/friday/wake.py).
+
 ## Things to say
 
 - "Catch me up" / "What's happening in tech?" — briefings for world, finance, tech, science and India
@@ -80,7 +90,7 @@ Optional values in `.env` (defaults shown in `.env.example`):
 
 | Variable | Purpose |
 | --- | --- |
-| `FRIDAY_LLM_MODEL` | Gemini model, default `gemini-2.5-flash` |
+| `FRIDAY_LLM_MODEL` | Gemini models, comma-separated and tried in order. The free tier has a small daily quota per model (20 requests a day on `gemini-2.5-flash`), so FRIDAY moves to the next one when a quota runs out |
 | `FRIDAY_TTS_VOICE` | Sarvam voice, default `priya`. Others for `bulbul:v3` include `ritu`, `neha`, `kavya`, `ishita`, `shreya`, `rahul`, `aditya`, `dev` |
 | `FRIDAY_TTS_PACE` | Speaking speed, default `1.1` |
 | `FRIDAY_STT_LANGUAGE` | Speech recognition language, default `en-IN` |
@@ -88,6 +98,70 @@ Optional values in `.env` (defaults shown in `.env.example`):
 | `FRIDAY_PORT` | Port for the tool server and HUD, default `8000` |
 
 The persona lives in [src/friday/prompts.py](src/friday/prompts.py).
+
+## Testing
+
+```bash
+uv run pytest
+```
+
+runs the offline suite (no network or API keys needed):
+
+| File | Kind | What it covers |
+| --- | --- | --- |
+| `tests/test_tools.py`, `tests/test_wake.py` | Unit | Feed parsing, text extraction, URL safety check, sleep/wake rules |
+| `tests/test_tool_calls.py` | Integration, network mocked | Every tool end to end: dead feeds, redirects into private addresses, search failures |
+| `tests/test_hudapp.py` | Integration | HUD page, and who is allowed a LiveKit token (local only, access code, spoofed hosts) |
+| `tests/test_server.py` | End to end | A real MCP client talking to the real server over HTTP |
+
+The live suite uses the real internet and your Gemini key (a few free-tier requests):
+
+```bash
+uv run pytest -m live
+```
+
+It checks that every news feed still answers, that search works, and that FRIDAY picks the
+right tool and answers in character. Lint and formatting:
+
+```bash
+uv run ruff check . && uv run ruff format --check .
+```
+
+GitHub Actions runs lint and the offline suite on every push ([ci.yml](.github/workflows/ci.yml)).
+
+## Deploying the HUD to Vercel
+
+Vercel hosts the HUD page and the token endpoint, so you can open FRIDAY from your phone
+or any browser. The voice agent and tool server are long-running processes that Vercel
+cannot host: they keep running on your computer, and connect out to LiveKit, so no ports
+need opening.
+
+```text
+phone / any browser ──► HUD on Vercel ──► LiveKit Cloud ◄── friday-voice + friday-server (your PC)
+```
+
+1. Install the CLI and link the project (once):
+
+   ```bash
+   npm i -g vercel && vercel login && vercel link
+   ```
+
+2. Upload the LiveKit settings and an access code, and deploy:
+
+   ```bash
+   bash scripts/vercel-env.sh
+   ```
+
+   The script copies `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` from `.env`
+   to Vercel, generates `FRIDAY_ACCESS_CODE` (saved in your `.env`) and redeploys.
+   `--dry-run` shows what it would do.
+
+3. Start `uv run friday-server` and `uv run friday-voice` on your computer, open the Vercel
+   URL, click **ENGAGE** and enter the access code.
+
+The hosted HUD refuses to hand out sessions without the access code, because anyone with a
+session can talk to your agent and use your quotas. Pushes to `main` redeploy automatically
+once the GitHub repository is connected to the Vercel project.
 
 ## Adding a tool
 
@@ -104,7 +178,9 @@ To get a card on the HUD, return a JSON string shaped like
 ```text
 src/friday/
 ├── agent.py        voice agent (STT → LLM → TTS, MCP tools, HUD events)
-├── server.py       MCP server + HUD host + token endpoint
+├── server.py       local tool server: MCP endpoint + the HUD app
+├── hudapp.py       HUD page + token endpoint (also the Vercel entrypoint)
+├── wake.py         sleep / wake rules
 ├── config.py       settings from .env
 ├── prompts.py      FRIDAY's persona and greeting
 ├── tools/
@@ -113,13 +189,15 @@ src/friday/
 │   ├── system.py   get_datetime
 │   └── feeds.py    RSS / Atom fetching and parsing
 └── hud/            index.html, hud.css, hud.js
-tests/              offline tests: uv run pytest
+tests/              unit, integration, end-to-end and live tests
+scripts/            vercel-env.sh (push settings to Vercel)
 ```
 
 ## Troubleshooting
 
 - **"FRIDAY has not joined"** — `uv run friday-voice` is not running, or its LiveKit keys differ from the server's.
 - **Red message on the HUD** — a provider rejected a request (wrong key, unknown voice, quota used up). The agent terminal has the detail.
+- **"Remote access is off"** on the hosted HUD — `FRIDAY_ACCESS_CODE` is not set on Vercel; run `bash scripts/vercel-env.sh`.
 - **No microphone** — the browser blocked it. Allow the mic for `127.0.0.1:8000`, or just type.
 - **Typed replies but no voice** — click the page once; browsers block audio until you interact.
 
