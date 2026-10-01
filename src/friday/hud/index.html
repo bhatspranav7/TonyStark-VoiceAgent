@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>F.R.I.D.A.Y.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/hud.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">F.R.I.D.A.Y.</span>
+      <span class="brand-sub">voice interface</span>
+    </div>
+    <dl class="readouts">
+      <div><dt>Link</dt><dd id="readout-link">offline</dd></div>
+      <div><dt>Room</dt><dd id="readout-room">—</dd></div>
+      <div><dt>Local time</dt><dd id="readout-clock">--:--:--</dd></div>
+    </dl>
+  </header>
+
+  <main class="grid">
+    <section class="panel transcript" aria-labelledby="transcript-title">
+      <h2 id="transcript-title">Conversation</h2>
+      <div id="transcript" class="scroll" aria-live="polite">
+        <p class="empty">Connect and say “catch me up”.</p>
+      </div>
+    </section>
+
+    <section class="core" aria-label="Agent status and controls">
+      <button id="orb" class="orb" type="button" aria-label="Connect to FRIDAY">
+        <canvas id="orb-canvas" aria-hidden="true"></canvas>
+        <span id="orb-label" class="orb-label">ENGAGE</span>
+      </button>
+      <p id="state" class="state" role="status">Offline</p>
+      <p id="notice" class="notice" hidden></p>
+
+      <div class="controls">
+        <button id="mic" class="btn" type="button" disabled aria-pressed="false">Mute mic</button>
+        <button id="disconnect" class="btn btn-quiet" type="button" disabled>Disconnect</button>
+      </div>
+
+      <form id="chat" class="chat" autocomplete="off">
+        <label class="visually-hidden" for="chat-input">Type a message to FRIDAY</label>
+        <input id="chat-input" type="text" placeholder="…or type to FRIDAY" disabled>
+        <button class="btn" type="submit" disabled>Send</button>
+      </form>
+    </section>
+
+    <section class="panel intel" aria-labelledby="intel-title">
+      <h2 id="intel-title">Intel feed <span id="tool-activity" class="activity" hidden></span></h2>
+      <div id="cards" class="scroll">
+        <p class="empty">Headlines and search results appear here.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.min.js"></script>
+  <script src="/static/hud.js"></script>
+</body>
+</html>
