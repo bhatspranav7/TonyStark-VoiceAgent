@@ -96,7 +96,13 @@ def prewarm(proc: JobProcess) -> None:
 
 # Sized for one person on their own machine: keep a single warm process and never
 # refuse a session because the desktop happens to be busy.
-server = AgentServer(setup_fnc=prewarm, num_idle_processes=1, load_threshold=math.inf)
+server = AgentServer(
+    setup_fnc=prewarm,
+    num_idle_processes=1,
+    load_threshold=math.inf,
+    # Loading the speech models on a cold start can take longer than the 10 s default.
+    initialize_process_timeout=60,
+)
 
 
 @server.rtc_session()
