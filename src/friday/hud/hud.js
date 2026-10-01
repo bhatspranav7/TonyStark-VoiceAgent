@@ -36,6 +36,7 @@
   let agentState = "offline";
   let agentTimer = null;
   let micMuted = false;
+  let asleep = false;
   let joinNoticeShown = false;
   const analysers = { agent: null, user: null };
   const audioEls = new Set();
@@ -48,7 +49,12 @@
   // ---------- status ----------
   function setState(state) {
     agentState = state;
-    els.state.textContent = STATE_LABELS[state] || state;
+    renderState();
+  }
+
+  function renderState() {
+    const sleeping = asleep && (agentState === "listening" || agentState === "idle");
+    els.state.textContent = sleeping ? "Asleep — say “Friday”" : (STATE_LABELS[agentState] || agentState);
   }
 
   function showNotice(message, isError = false) {
@@ -207,6 +213,9 @@
       const data = parseToolOutput(message.output);
       if (data) addCard(message.name, data, message.is_error);
       else if (message.is_error) addCard(message.name, { error: String(message.output) }, true);
+    } else if (message.type === "mode") {
+      asleep = Boolean(message.asleep);
+      renderState();
     } else if (message.type === "error") {
       showNotice(message.message, true);
     }
@@ -239,6 +248,7 @@
     analysers.agent = analysers.user = null;
     room = null;
     micMuted = false;
+    asleep = false;
     els.mic.textContent = "Mute mic";
     els.mic.setAttribute("aria-pressed", "false");
     els.activity.hidden = true;
@@ -393,7 +403,7 @@
     const w = els.canvas.width, h = els.canvas.height;
     if (!w || !h) return;
     const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2;
-    const [r, gr, b] = PALETTE[agentState] || PALETTE.default;
+    const [r, gr, b] = (asleep && agentState !== "speaking" ? PALETTE.offline : PALETTE[agentState]) || PALETTE.default;
     const color = (alpha) => `rgba(${r},${gr},${b},${alpha})`;
 
     level += (sampleAudio() - level) * 0.25;

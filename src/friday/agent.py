@@ -11,7 +11,20 @@ import json
 import math
 import sys
 
-from livekit.agents import Agent, AgentServer, AgentSession, JobContext, JobProcess, cli, mcp
+from collections.abc import Callable
+
+from livekit.agents import (
+    Agent,
+    AgentServer,
+    AgentSession,
+    JobContext,
+    JobProcess,
+    StopResponse,
+    cli,
+    llm,
+    mcp,
+    room_io,
+)
 from livekit.agents.voice.events import (
     ErrorEvent,
     FunctionToolsExecutedEvent,
@@ -21,6 +34,7 @@ from livekit.plugins import google, sarvam, silero
 
 from .config import settings
 from .prompts import build_instructions, greeting_instructions
+from .wake import Heard, WakeGate
 
 # Text-stream topic the HUD listens on for tool activity and result cards.
 HUD_TOPIC = "friday.hud"
@@ -34,9 +48,39 @@ REQUIRED_ENV = (
 )
 
 
+SLEEP_LINE = "Standing by, {title}. Say my name when you need me."
+
+
 class Friday(Agent):
-    def __init__(self) -> None:
+    def __init__(self, on_mode_change: Callable[[bool], None] | None = None) -> None:
         super().__init__(instructions=build_instructions(settings.user_title))
+        self.gate = WakeGate()
+        self._on_mode_change = on_mode_change
+
+    def screen(self, text: str) -> bool:
+        """Apply the sleep/wake gate to one user utterance; True means answer it."""
+        heard = self.gate.hear(text)
+        if heard in (Heard.SLEPT, Heard.WOKE) and self._on_mode_change:
+            self._on_mode_change(self.gate.asleep)
+        if heard is Heard.SLEPT:
+            self.session.say(SLEEP_LINE.format(title=settings.user_title))
+        return heard in (Heard.RESPOND, Heard.WOKE)
+
+    async def on_user_turn_completed(
+        self, turn_ctx: llm.ChatContext, new_message: llm.ChatMessage
+    ) -> None:
+        if not self.screen(new_message.text_content or ""):
+            raise StopResponse()
+
+
+def mcp_tools() -> mcp.MCPServerHTTP:
+    return mcp.MCPServerHTTP(
+        url=settings.mcp_url,
+        transport_type="streamable_http",
+        timeout=10,
+        # Web search can take several seconds; the default of 5 is too tight.
+        client_session_timeout_seconds=30,
+    )
 
 
 def prewarm(proc: JobProcess) -> None:
@@ -62,15 +106,7 @@ async def entrypoint(ctx: JobContext) -> None:
             speaker=settings.tts_voice,
             pace=settings.tts_pace,
         ),
-        mcp_servers=[
-            mcp.MCPServerHTTP(
-                url=settings.mcp_url,
-                transport_type="streamable_http",
-                timeout=10,
-                # Web search can take several seconds; the default of 5 is too tight.
-                client_session_timeout_seconds=30,
-            )
-        ],
+        mcp_servers=[mcp_tools()],
         max_tool_steps=5,
     )
 
@@ -108,7 +144,21 @@ async def entrypoint(ctx: JobContext) -> None:
         detail = getattr(event.error, "error", event.error)
         send_to_hud({"type": "error", "message": f"{label}: {detail}"[:400]})
 
-    await session.start(agent=Friday(), room=ctx.room)
+    friday = Friday(on_mode_change=lambda asleep: send_to_hud({"type": "mode", "asleep": asleep}))
+
+    async def on_text_input(sess: AgentSession, event: room_io.TextInputEvent) -> None:
+        # Typed messages skip on_user_turn_completed, so run them through the same gate.
+        await sess.interrupt()
+        if friday.screen(event.text):
+            sess.generate_reply(user_input=event.text)
+
+    await session.start(
+        agent=friday,
+        room=ctx.room,
+        room_options=room_io.RoomOptions(
+            text_input=room_io.TextInputOptions(text_input_cb=on_text_input)
+        ),
+    )
     await session.generate_reply(instructions=greeting_instructions(settings.user_title))
 
 
