@@ -1,5 +1,8 @@
 """Offline tests for the tool helpers (no network, no API keys)."""
 
+import dataclasses
+
+from friday.config import settings
 from friday.server import mcp
 from friday.tools.feeds import clean_text, parse_feed
 from friday.tools.web import MSN_ARTICLE_RE, extract_text, is_public_url
@@ -93,6 +96,13 @@ def test_msn_article_urls_are_recognised():
 def test_extract_text_prefers_article_content():
     body = "Story sentence. " * 20
     _, text = extract_text(
-        f"<body><div>HOME WORLD SPORTS</div><article><p>{body}</p></article><div>Related</div></body>"
+        "<body><div>HOME WORLD SPORTS</div>"
+        f"<article><p>{body}</p></article><div>Related</div></body>"
     )
     assert text == body.strip()
+
+
+def test_llm_models_setting_is_a_comma_separated_fallback_list():
+    custom = dataclasses.replace(settings, llm_model=" model-a , model-b,,")
+    assert custom.llm_models == ["model-a", "model-b"]
+    assert len(settings.llm_models) >= 1

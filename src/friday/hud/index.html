@@ -39,6 +39,12 @@
       <p id="state" class="state" role="status">Offline</p>
       <p id="notice" class="notice" hidden></p>
 
+      <form id="access" class="chat" hidden>
+        <label class="visually-hidden" for="access-code">Access code</label>
+        <input id="access-code" type="password" placeholder="Access code" autocomplete="current-password">
+        <button class="btn" type="submit">Unlock</button>
+      </form>
+
       <div class="controls">
         <button id="mic" class="btn" type="button" disabled aria-pressed="false">Mute mic</button>
         <button id="disconnect" class="btn btn-quiet" type="button" disabled>Disconnect</button>

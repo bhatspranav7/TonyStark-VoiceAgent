@@ -186,9 +186,7 @@ def register(mcp) -> None:
             url: Full http(s) URL of the page.
         """
         try:
-            async with httpx.AsyncClient(
-                timeout=12, headers={"User-Agent": USER_AGENT}
-            ) as client:
+            async with httpx.AsyncClient(timeout=12, headers={"User-Agent": USER_AGENT}) as client:
                 page = await _read_msn_article(client, url) or await _read_html_page(client, url)
         except PageError as exc:
             return json.dumps({"error": str(exc)})

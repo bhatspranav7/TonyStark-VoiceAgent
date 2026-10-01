@@ -9,6 +9,7 @@
   const AGENT_STATE_ATTR = "lk.agent.state";
   const AGENT_JOIN_TIMEOUT_MS = 15000;
   const MAX_CARDS = 12;
+  const ACCESS_CODE_KEY = "friday.accessCode";
 
   const $ = (id) => document.getElementById(id);
   const els = {
@@ -16,6 +17,7 @@
     state: $("state"), notice: $("notice"),
     mic: $("mic"), disconnect: $("disconnect"),
     chat: $("chat"), chatInput: $("chat-input"), chatSend: $("chat").querySelector("button"),
+    access: $("access"), accessCode: $("access-code"),
     transcript: $("transcript"), cards: $("cards"), activity: $("tool-activity"),
     link: $("readout-link"), room: $("readout-room"), clock: $("readout-clock"),
   };
@@ -75,6 +77,18 @@
     els.link.textContent = connected ? "online" : "offline";
     els.link.dataset.on = String(connected);
     if (!connected) els.room.textContent = "—";
+  }
+
+  // ---------- access code (only asked for when the HUD is not on localhost) ----------
+  function storedCode() {
+    try { return localStorage.getItem(ACCESS_CODE_KEY) || ""; } catch { return ""; }
+  }
+
+  function storeCode(code) {
+    try {
+      if (code) localStorage.setItem(ACCESS_CODE_KEY, code);
+      else localStorage.removeItem(ACCESS_CODE_KEY);
+    } catch { /* storage unavailable: the code just is not remembered */ }
   }
 
   // ---------- transcript ----------
@@ -258,7 +272,7 @@
     setState("offline");
   }
 
-  async function connect() {
+  async function connect(accessCode = "") {
     if (room) return;
     clearNotice();
     setState("connecting");
@@ -270,14 +284,28 @@
 
     let creds;
     try {
-      const res = await fetch("/api/token", { method: "POST" });
+      const res = await fetch("/api/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: accessCode || storedCode() }),
+      });
       creds = await res.json();
+      if (res.status === 401 && creds.needs_code) {
+        storeCode("");
+        cleanup();
+        els.access.hidden = false;
+        els.accessCode.focus();
+        if (accessCode) showNotice(creds.error, true);
+        return;
+      }
       if (!res.ok) throw new Error(creds.error || res.statusText);
     } catch (err) {
       cleanup();
       showNotice(`Could not get a session: ${err.message}`, true);
       return;
     }
+    if (accessCode) storeCode(accessCode);
+    els.access.hidden = true;
 
     room = new Room();
     room
@@ -333,7 +361,13 @@
     }
   }
 
-  els.orb.addEventListener("click", connect);
+  els.orb.addEventListener("click", () => connect());
+  els.access.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const code = els.accessCode.value.trim();
+    els.accessCode.value = "";
+    if (code) connect(code);
+  });
   els.disconnect.addEventListener("click", () => room?.disconnect());
 
   els.mic.addEventListener("click", async () => {

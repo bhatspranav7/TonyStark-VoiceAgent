@@ -10,7 +10,6 @@ import asyncio
 import json
 import math
 import sys
-
 from collections.abc import Callable
 
 from livekit.agents import (
@@ -73,6 +72,14 @@ class Friday(Agent):
             raise StopResponse()
 
 
+def build_llm() -> llm.LLM:
+    models = [google.LLM(model=name) for name in settings.llm_models]
+    if len(models) == 1:
+        return models[0]
+    # When one model's quota runs out (or it is overloaded), move on to the next.
+    return llm.FallbackAdapter(models, attempt_timeout=15)
+
+
 def mcp_tools() -> mcp.MCPServerHTTP:
     return mcp.MCPServerHTTP(
         url=settings.mcp_url,
@@ -99,7 +106,7 @@ async def entrypoint(ctx: JobContext) -> None:
     session = AgentSession(
         vad=ctx.proc.userdata["vad"],
         stt=sarvam.STT(language=settings.stt_language, model=settings.stt_model),
-        llm=google.LLM(model=settings.llm_model),
+        llm=build_llm(),
         tts=sarvam.TTS(
             target_language_code=settings.tts_language,
             model=settings.tts_model,
@@ -127,7 +134,7 @@ async def entrypoint(ctx: JobContext) -> None:
 
     @session.on("function_tools_executed")
     def on_tools_executed(event: FunctionToolsExecutedEvent) -> None:
-        for call, output in zip(event.function_calls, event.function_call_outputs):
+        for call, output in zip(event.function_calls, event.function_call_outputs, strict=True):
             send_to_hud(
                 {
                     "type": "tool_result",

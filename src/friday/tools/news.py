@@ -89,7 +89,9 @@ def register(mcp) -> None:
             for r in results or []
         ]
         # Newest first; entries with a missing or free-text date go last.
-        articles.sort(key=lambda a: a["published"] if _is_iso_date(a["published"]) else "", reverse=True)
+        articles.sort(
+            key=lambda a: a["published"] if _is_iso_date(a["published"]) else "", reverse=True
+        )
 
         if not articles:
             # Fallback: headlines only. Google News links are redirects read_page cannot follow.

@@ -4,18 +4,25 @@ version = "0.1.0"
 description = "F.R.I.D.A.Y. — a Tony Stark-style voice agent with its own HUD, built on LiveKit Agents and MCP"
 readme = "README.md"
 requires-python = ">=3.11"
+# Core: the tool server and HUD. Kept light so the HUD can run as a serverless function.
 dependencies = [
+    "ddgs",
+    "defusedxml>=0.7.1",
+    "httpx",
+    "livekit-api",
+    "mcp>=1.27",
+    "python-dotenv",
+    "starlette",
+    "uvicorn",
+]
+
+[project.optional-dependencies]
+# The voice agent itself (speech, LLM, audio models).
+voice = [
     "livekit-agents[mcp]>=1.5.1",
     "livekit-plugins-google>=1.5.1",
     "livekit-plugins-sarvam>=1.5.1",
     "livekit-plugins-silero>=1.5.1",
-    "livekit-api",
-    "mcp>=1.27",
-    "httpx",
-    "ddgs",
-    "python-dotenv",
-    "starlette",
-    "uvicorn",
 ]
 
 [project.scripts]
@@ -23,7 +30,13 @@ friday-server = "friday.server:main"
 friday-voice = "friday.agent:main"
 
 [dependency-groups]
-dev = ["pytest", "pytest-asyncio"]
+# `uv sync` installs this group by default, so local setups get the voice agent too.
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+    "tonystark-voiceagent[voice]",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -32,6 +45,29 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/friday"]
 
+[tool.uv.sources]
+tonystark-voiceagent = { workspace = true }
+
+[tool.vercel]
+entrypoint = "friday.hudapp:app"
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "live: needs internet and real API keys; run with `uv run pytest -m live`",
+]
+addopts = "-m 'not live'"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "S"]
+ignore = [
+    "S101", # asserts are how pytest works
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S"]

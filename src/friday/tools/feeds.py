@@ -3,11 +3,13 @@
 import asyncio
 import html
 import re
-import xml.etree.ElementTree as ET
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from xml.etree.ElementTree import ParseError
 
 import httpx
+from defusedxml import DefusedXmlException
+from defusedxml.ElementTree import fromstring
 
 USER_AGENT = "Mozilla/5.0 (compatible; FridayVoiceAgent/0.1)"
 ATOM = "{http://www.w3.org/2005/Atom}"
@@ -37,15 +39,16 @@ def _parse_date(raw: str | None) -> datetime | None:
         except ValueError:
             return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
     return parsed
 
 
 def parse_feed(xml_text: str, source: str) -> list[dict]:
     """Parse an RSS 2.0 or Atom document into a list of article dicts."""
     try:
-        root = ET.fromstring(xml_text)
-    except ET.ParseError:
+        # Feeds are untrusted input: defusedxml rejects entity-expansion attacks.
+        root = fromstring(xml_text)
+    except (ParseError, DefusedXmlException):
         return []
 
     articles: list[dict] = []
