@@ -38,7 +38,8 @@
   let agentState = "offline";
   let agentTimer = null;
   let micMuted = false;
-  let asleep = false;
+  let needsName = true; // she only answers speech addressed to her by name
+  let followUpTimer = null;
   let joinNoticeShown = false;
   const analysers = { agent: null, user: null };
   const audioEls = new Set();
@@ -55,8 +56,8 @@
   }
 
   function renderState() {
-    const sleeping = asleep && (agentState === "listening" || agentState === "idle");
-    els.state.textContent = sleeping ? "Asleep — say “Friday”" : (STATE_LABELS[agentState] || agentState);
+    const waiting = needsName && (agentState === "listening" || agentState === "idle");
+    els.state.textContent = waiting ? "Say “Friday” to talk" : (STATE_LABELS[agentState] || agentState);
   }
 
   function showNotice(message, isError = false) {
@@ -228,7 +229,12 @@
       if (data) addCard(message.name, data, message.is_error);
       else if (message.is_error) addCard(message.name, { error: String(message.output) }, true);
     } else if (message.type === "mode") {
-      asleep = Boolean(message.asleep);
+      // follow_up > 0: she keeps listening that many seconds without needing her name.
+      clearTimeout(followUpTimer);
+      needsName = !(message.follow_up > 0);
+      if (!needsName) {
+        followUpTimer = setTimeout(() => { needsName = true; renderState(); }, message.follow_up * 1000);
+      }
       renderState();
     } else if (message.type === "error") {
       showNotice(message.message, true);
@@ -262,7 +268,8 @@
     analysers.agent = analysers.user = null;
     room = null;
     micMuted = false;
-    asleep = false;
+    clearTimeout(followUpTimer);
+    needsName = true;
     els.mic.textContent = "Mute mic";
     els.mic.setAttribute("aria-pressed", "false");
     els.activity.hidden = true;
@@ -398,6 +405,7 @@
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const PALETTE = {
     offline: [70, 120, 145],
+    standby: [58, 150, 178],
     thinking: [255, 180, 84],
     speaking: [170, 244, 255],
     default: [94, 230, 255],
@@ -438,7 +446,7 @@
     const w = els.canvas.width, h = els.canvas.height;
     if (!w || !h) return;
     const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2;
-    const [r, gr, b] = (asleep && agentState !== "speaking" ? PALETTE.offline : PALETTE[agentState]) || PALETTE.default;
+    const [r, gr, b] = (needsName && agentState === "listening" ? PALETTE.standby : PALETTE[agentState]) || PALETTE.default;
     const color = (alpha) => `rgba(${r},${gr},${b},${alpha})`;
 
     level += (sampleAudio() - level) * 0.25;

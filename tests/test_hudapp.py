@@ -54,6 +54,20 @@ async def test_hud_page_and_assets_are_served(configure):
             assert (await http.get(asset)).status_code == 200
 
 
+async def test_browsers_are_told_to_check_for_updated_hud_files(configure):
+    async with client() as http:
+        for path in ("/", "/static/hud.js", "/static/hud.css"):
+            response = await http.get(path)
+            assert response.headers["cache-control"] == "no-cache", path
+
+        # ...and for the script and stylesheet a repeat visit is a cheap "not modified".
+        for path in ("/static/hud.js", "/static/hud.css"):
+            etag = (await http.get(path)).headers["etag"]
+            repeat = await http.get(path, headers={"If-None-Match": etag})
+            assert repeat.status_code == 304, path
+            assert repeat.headers["cache-control"] == "no-cache", path
+
+
 async def test_static_does_not_serve_files_outside_the_hud_folder(configure):
     async with client() as http:
         response = await http.get("/static/../config.py")

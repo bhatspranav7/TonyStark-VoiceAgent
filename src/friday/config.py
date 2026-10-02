@@ -46,6 +46,16 @@ class Settings:
     # Persona
     user_title: str = _env("FRIDAY_USER_TITLE", "boss")
 
+    # She only answers speech that contains one of these (comma-separated; include the
+    # spellings speech-to-text produces for the name).
+    wake_word: str = _env("FRIDAY_WAKE_WORD", "friday,fri day,fryday")
+    # Seconds she keeps listening after an answer without needing her name again. 0 = never.
+    follow_up_seconds: float = float(_env("FRIDAY_FOLLOW_UP_SECONDS", "0"))
+
+    @property
+    def wake_words(self) -> list[str]:
+        return [word.strip() for word in self.wake_word.split(",") if word.strip()]
+
     @property
     def llm_models(self) -> list[str]:
         return [name.strip() for name in self.llm_model.split(",") if name.strip()]

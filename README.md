@@ -62,7 +62,7 @@ uv run friday
 
 On Windows you can double-click **Start FRIDAY.bat** instead. This starts the tool server
 and the voice agent, waits until both are ready, and opens the HUD at
-<http://127.0.0.1:8000>. Click **ENGAGE**, allow the microphone, and say "catch me up".
+<http://127.0.0.1:8000>. Click **ENGAGE**, allow the microphone, and say "Friday, catch me up".
 Close the window (or press Ctrl+C) to stop everything.
 
 To make the HUD feel like an app, open it in Chrome and choose **⋮ → Cast, save and share →
@@ -79,23 +79,34 @@ uv run friday-server
 uv run friday-voice
 ```
 
-## Waking FRIDAY and putting her to sleep
+## Talking to FRIDAY
 
-- **Wake:** click **ENGAGE** on the HUD. She joins, greets you and starts listening.
-- **Sleep:** say "go to sleep", "stand by" or "stop listening". She confirms, then ignores
-  everything she hears. The HUD shows *Asleep*.
-- **Wake again:** say "Friday" or "wake up" (for example "Friday, what's the news?").
-- **Stop completely:** click **Disconnect**, or mute the microphone with **Mute mic**.
+FRIDAY hears everything the microphone picks up, so she only answers when you say her name.
 
-Typed messages follow the same rules. The phrases are in [src/friday/wake.py](src/friday/wake.py).
+- **Start:** click **ENGAGE** on the HUD. She greets you once, then waits. The HUD shows
+  *Say "Friday" to talk*.
+- **Ask:** put her name in the request: "Friday, what's the news?" or "What time is it, Friday?"
+  Anything said without her name is ignored, including other people and background audio.
+- **Stop her:** "Friday, stop", "Friday, that's all" or "Thanks, Friday".
+- **Typing:** typed messages are always answered; no name needed.
+- **Leave:** click **Disconnect**, or **Mute mic** to stop her hearing anything.
+
+Two settings in `.env` change this:
+
+| Variable | Purpose |
+| --- | --- |
+| `FRIDAY_WAKE_WORD` | Names she answers to, comma-separated. Default `friday,fri day,fryday` (the extra spellings are what speech-to-text sometimes writes) |
+| `FRIDAY_FOLLOW_UP_SECONDS` | How long she keeps listening after an answer without needing her name again. Default `0` (name every time); try `10` for back-and-forth conversation |
+
+The rules live in [src/friday/wake.py](src/friday/wake.py).
 
 ## Things to say
 
-- "Catch me up" / "What's happening in tech?" — briefings for world, finance, tech, science and India
-- "Any news about ISRO?" — news search on a subject
-- "Search for the latest Python release" — live web search
-- "Open the second one and tell me more" — reads the page behind a result
-- "What time is it?"
+- "Friday, catch me up" / "Friday, what's happening in tech?" — briefings for world, finance, tech, science and India
+- "Friday, any news about ISRO?" — news search on a subject
+- "Friday, search for the latest Python release" — live web search
+- "Friday, open the second one and tell me more" — reads the page behind a result
+- "Friday, what time is it?"
 
 ## Settings
 
@@ -122,7 +133,7 @@ runs the offline suite (no network or API keys needed):
 
 | File | Kind | What it covers |
 | --- | --- | --- |
-| `tests/test_tools.py`, `tests/test_wake.py` | Unit | Feed parsing, text extraction, URL safety check, sleep/wake rules |
+| `tests/test_tools.py`, `tests/test_wake.py`, `tests/test_agent.py`, `tests/test_launcher.py` | Unit | Feed parsing, text extraction, URL safety check, name activation, the launcher |
 | `tests/test_tool_calls.py` | Integration, network mocked | Every tool end to end: dead feeds, redirects into private addresses, search failures |
 | `tests/test_hudapp.py` | Integration | HUD page, and who is allowed a LiveKit token (local only, access code, spoofed hosts) |
 | `tests/test_server.py` | End to end | A real MCP client talking to the real server over HTTP |
@@ -202,7 +213,7 @@ src/friday/
 ├── launcher.py     `uv run friday`: starts the server and agent together
 ├── server.py       local tool server: MCP endpoint + the HUD app
 ├── hudapp.py       HUD page + token endpoint (also the Vercel entrypoint)
-├── wake.py         sleep / wake rules
+├── wake.py         name activation (she answers only when addressed)
 ├── config.py       settings from .env
 ├── prompts.py      FRIDAY's persona and greeting
 ├── tools/

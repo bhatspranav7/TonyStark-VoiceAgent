@@ -22,10 +22,20 @@ from .config import settings
 
 HUD_DIR = Path(__file__).parent / "hud"
 LOCAL_HOSTS = {"127.0.0.1", "localhost", "[::1]"}
+# The HUD files change with every update; without this, browsers keep running an old
+# copy for a while. "no-cache" still lets them reuse the file after a quick check.
+REVALIDATE = {"Cache-Control": "no-cache"}
+
+
+class HudFiles(StaticFiles):
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers.update(REVALIDATE)
+        return response
 
 
 async def hud_page(request: Request) -> FileResponse:
-    return FileResponse(HUD_DIR / "index.html")
+    return FileResponse(HUD_DIR / "index.html", headers=REVALIDATE)
 
 
 def _is_local(request: Request) -> bool:
@@ -93,7 +103,7 @@ def hud_routes() -> list:
     return [
         Route("/", hud_page),
         Route("/api/token", issue_token, methods=["POST"]),
-        Mount("/static", StaticFiles(directory=HUD_DIR), name="static"),
+        Mount("/static", HudFiles(directory=HUD_DIR), name="static"),
     ]
 
 

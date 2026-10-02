@@ -22,9 +22,9 @@ from livekit.agents import (
     cli,
     llm,
     mcp,
-    room_io,
 )
 from livekit.agents.voice.events import (
+    AgentStateChangedEvent,
     ErrorEvent,
     FunctionToolsExecutedEvent,
     ToolExecutionUpdatedEvent,
@@ -47,29 +47,27 @@ REQUIRED_ENV = (
 )
 
 
-SLEEP_LINE = "Standing by, {title}. Say my name when you need me."
+DISMISSED_LINE = "Standing by."
 
 
 class Friday(Agent):
-    def __init__(self, on_mode_change: Callable[[bool], None] | None = None) -> None:
+    def __init__(self, on_dismissed: Callable[[], None] | None = None) -> None:
         super().__init__(instructions=build_instructions(settings.user_title))
-        self.gate = WakeGate()
-        self._on_mode_change = on_mode_change
-
-    def screen(self, text: str) -> bool:
-        """Apply the sleep/wake gate to one user utterance; True means answer it."""
-        heard = self.gate.hear(text)
-        if heard in (Heard.SLEPT, Heard.WOKE) and self._on_mode_change:
-            self._on_mode_change(self.gate.asleep)
-        if heard is Heard.SLEPT:
-            self.session.say(SLEEP_LINE.format(title=settings.user_title))
-        return heard in (Heard.RESPOND, Heard.WOKE)
+        self.gate = WakeGate(settings.wake_words, settings.follow_up_seconds)
+        self._on_dismissed = on_dismissed
 
     async def on_user_turn_completed(
         self, turn_ctx: llm.ChatContext, new_message: llm.ChatMessage
     ) -> None:
-        if not self.screen(new_message.text_content or ""):
-            raise StopResponse()
+        # Runs for everything the microphone hears; only speech addressed to her gets a reply.
+        heard = self.gate.hear(new_message.text_content or "")
+        if heard is Heard.RESPOND:
+            return
+        if heard is Heard.DISMISSED:
+            self.session.say(DISMISSED_LINE)
+            if self._on_dismissed:
+                self._on_dismissed()
+        raise StopResponse()
 
 
 def build_llm() -> llm.LLM:
@@ -157,21 +155,20 @@ async def entrypoint(ctx: JobContext) -> None:
         detail = getattr(event.error, "error", event.error)
         send_to_hud({"type": "error", "message": f"{label}: {detail}"[:400]})
 
-    friday = Friday(on_mode_change=lambda asleep: send_to_hud({"type": "mode", "asleep": asleep}))
+    def send_listening_mode(follow_up_seconds: float) -> None:
+        # Tells the HUD whether she needs her name next, or is still listening for a follow-up.
+        send_to_hud({"type": "mode", "follow_up": follow_up_seconds})
 
-    async def on_text_input(sess: AgentSession, event: room_io.TextInputEvent) -> None:
-        # Typed messages skip on_user_turn_completed, so run them through the same gate.
-        await sess.interrupt()
-        if friday.screen(event.text):
-            sess.generate_reply(user_input=event.text)
+    friday = Friday(on_dismissed=lambda: send_listening_mode(0))
 
-    await session.start(
-        agent=friday,
-        room=ctx.room,
-        room_options=room_io.RoomOptions(
-            text_input=room_io.TextInputOptions(text_input_cb=on_text_input)
-        ),
-    )
+    @session.on("agent_state_changed")
+    def on_agent_state(event: AgentStateChangedEvent) -> None:
+        if event.old_state == "speaking" and event.new_state == "listening":
+            friday.gate.answered()
+            send_listening_mode(settings.follow_up_seconds if friday.gate.in_follow_up else 0)
+
+    # Typed messages are always answered: typing to her is already addressing her.
+    await session.start(agent=friday, room=ctx.room)
     await session.generate_reply(instructions=greeting_instructions(settings.user_title))
 
 
