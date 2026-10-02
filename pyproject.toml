@@ -26,6 +26,7 @@ voice = [
 ]
 
 [project.scripts]
+friday = "friday.launcher:main"
 friday-server = "friday.server:main"
 friday-voice = "friday.agent:main"
 

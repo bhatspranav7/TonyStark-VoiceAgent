@@ -119,7 +119,7 @@ async def entrypoint(ctx: JobContext) -> None:
             speaker=settings.tts_voice,
             pace=settings.tts_pace,
         ),
-        mcp_servers=[mcp_tools()],
+        tools=[mcp.MCPToolset(id="friday", mcp_server=mcp_tools())],
         max_tool_steps=5,
     )
 

@@ -20,6 +20,7 @@ mcp = FastMCP(
     instructions="Tools for F.R.I.D.A.Y.: news briefings, web search, page reading and local time.",
     host=settings.host,
     port=settings.port,
+    log_level="WARNING",
 )
 register_all(mcp)
 

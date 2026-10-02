@@ -53,7 +53,8 @@ async def test_friday_uses_the_briefing_tool_and_stays_in_character(live_server)
         client_session_timeout_seconds=30,
     )
     model = build_llm()
-    async with AgentSession(llm=model, mcp_servers=[tools], max_tool_steps=5) as session:
+    toolset = mcp.MCPToolset(id="friday", mcp_server=tools)
+    async with AgentSession(llm=model, tools=[toolset], max_tool_steps=5) as session:
         await session.start(Friday())
 
         result = await session.run(user_input="What's happening in tech today?")

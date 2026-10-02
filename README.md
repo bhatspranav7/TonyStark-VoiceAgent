@@ -27,10 +27,11 @@ Everything runs on free tiers: LiveKit Cloud, Google Gemini and Sarvam AI.
      /api/token  lets the HUD join a LiveKit room
 ```
 
-Two processes run side by side:
+Two processes run side by side, started together by one launcher:
 
 | Command | What it does |
 | --- | --- |
+| `uv run friday` | Starts both of the processes below and opens the HUD. |
 | `uv run friday-server` | Local web server on port 8000. Hosts the MCP tools, the HUD page and the token endpoint. |
 | `uv run friday-voice` | The LiveKit voice agent. Joins the room the HUD creates, listens, thinks, speaks and calls the tools. |
 
@@ -53,7 +54,22 @@ Fill in `.env`:
 | `GOOGLE_API_KEY` | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 | `SARVAM_API_KEY` | [dashboard.sarvam.ai](https://dashboard.sarvam.ai) |
 
-Then start both processes, each in its own terminal:
+Then start FRIDAY:
+
+```bash
+uv run friday
+```
+
+On Windows you can double-click **Start FRIDAY.bat** instead. This starts the tool server
+and the voice agent, waits until both are ready, and opens the HUD at
+<http://127.0.0.1:8000>. Click **ENGAGE**, allow the microphone, and say "catch me up".
+Close the window (or press Ctrl+C) to stop everything.
+
+To make the HUD feel like an app, open it in Chrome and choose **⋮ → Cast, save and share →
+Install page as app**.
+
+The two processes can also be run separately, each in its own terminal, which is handy
+when you want to see the agent's full logs:
 
 ```bash
 uv run friday-server
@@ -62,9 +78,6 @@ uv run friday-server
 ```bash
 uv run friday-voice
 ```
-
-Open <http://127.0.0.1:8000> in Chrome or Edge, click **ENGAGE**, allow the microphone,
-and say "catch me up".
 
 ## Waking FRIDAY and putting her to sleep
 
@@ -164,8 +177,8 @@ phone / any browser ──► HUD on Vercel ──► LiveKit Cloud ◄── fr
    to Vercel, generates `FRIDAY_ACCESS_CODE` (saved in your `.env`) and redeploys.
    `-DryRun` (PowerShell) or `--dry-run` (bash) shows what it would do.
 
-3. Start `uv run friday-server` and `uv run friday-voice` on your computer, open the Vercel
-   URL, click **ENGAGE** and enter the access code.
+3. Start FRIDAY on your computer (`uv run friday --no-browser`), open the Vercel URL, click
+   **ENGAGE** and enter the access code.
 
 The hosted HUD refuses to hand out sessions without the access code, because anyone with a
 session can talk to your agent and use your quotas. Pushes to `main` redeploy automatically
@@ -186,6 +199,7 @@ To get a card on the HUD, return a JSON string shaped like
 ```text
 src/friday/
 ├── agent.py        voice agent (STT → LLM → TTS, MCP tools, HUD events)
+├── launcher.py     `uv run friday`: starts the server and agent together
 ├── server.py       local tool server: MCP endpoint + the HUD app
 ├── hudapp.py       HUD page + token endpoint (also the Vercel entrypoint)
 ├── wake.py         sleep / wake rules
@@ -203,7 +217,7 @@ scripts/            vercel-env.ps1 / .sh (push settings to Vercel)
 
 ## Troubleshooting
 
-- **"FRIDAY has not joined"** — `uv run friday-voice` is not running, or its LiveKit keys differ from the server's.
+- **"FRIDAY has not joined"** — the voice agent is not running (start it with `uv run friday`), is still starting up, or its LiveKit keys differ from the server's.
 - **Red message on the HUD** — a provider rejected a request (wrong key, unknown voice, quota used up). The agent terminal has the detail.
 - **"Remote access is off"** on the hosted HUD — `FRIDAY_ACCESS_CODE` is not set on Vercel; run the `scripts/vercel-env` script (see Deploying).
 - **No microphone** — the browser blocked it. Allow the mic for `127.0.0.1:8000`, or just type.

@@ -327,6 +327,7 @@
         if (room && room.remoteParticipants.size === 0) {
           setState("waiting");
           showNotice("FRIDAY left the room. Disconnect and engage again to restart.");
+          joinNoticeShown = true; // cleared automatically if she comes back
         }
       })
       .on(RoomEvent.Disconnected, cleanup);
@@ -348,7 +349,7 @@
     room.remoteParticipants.forEach(readAgentState);
     agentTimer = setTimeout(() => {
       if (agentState === "waiting") {
-        showNotice("FRIDAY has not joined. Check that `uv run friday-voice` is running.", true);
+        showNotice("FRIDAY has not joined yet. Check that `uv run friday` is running on your computer.", true);
         joinNoticeShown = true;
       }
     }, AGENT_JOIN_TIMEOUT_MS);

@@ -31,9 +31,10 @@ class Settings:
     # Voice pipeline
     # Comma-separated, tried in order. Gemini's free tier has a small daily quota per
     # model (20 requests/day on gemini-2.5-flash), so the agent falls through the list.
+    # Ordered by measured time to first token; a slow model makes a slow conversation.
     llm_model: str = _env(
         "FRIDAY_LLM_MODEL",
-        "gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-3.5-flash,gemini-2.5-flash",
+        "gemini-3.1-flash-lite,gemini-2.5-flash,gemini-3.5-flash,gemini-3.5-flash-lite",
     )
     stt_model: str = _env("FRIDAY_STT_MODEL", "saaras:v3")
     stt_language: str = _env("FRIDAY_STT_LANGUAGE", "en-IN")
