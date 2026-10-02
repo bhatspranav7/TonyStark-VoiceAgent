@@ -68,6 +68,11 @@ def wait_for_agent(agent: subprocess.Popen, registered: threading.Event, timeout
     return False
 
 
+def pause(seconds: float) -> None:
+    """The wait between health checks in main(); separate so tests can replace it."""
+    time.sleep(seconds)
+
+
 def stop(process: subprocess.Popen) -> None:
     if process.poll() is not None:
         return
@@ -131,7 +136,7 @@ def main() -> None:
                 if process.poll() is not None:
                     print(f"\nThe {name} stopped (exit code {process.returncode}). Shutting down.")
                     return
-            time.sleep(1)
+            pause(1)
     except KeyboardInterrupt:
         print("\nStopping FRIDAY...")
     finally:

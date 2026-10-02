@@ -72,7 +72,8 @@ def run_main_with(monkeypatch, processes, during_wait):
     monkeypatch.setattr(launcher, "relay_agent_output", lambda *a, **k: None)
     monkeypatch.setattr(launcher.webbrowser, "open", lambda url: None)
     monkeypatch.setattr(launcher.subprocess, "Popen", fake_popen)
-    monkeypatch.setattr(launcher.time, "sleep", during_wait)
+    # Not time.sleep: that is global, and Popen.wait() relies on it on Linux and macOS.
+    monkeypatch.setattr(launcher, "pause", during_wait)
     monkeypatch.setattr(sys, "argv", ["friday", "--no-browser"])
     launcher.main()
 
