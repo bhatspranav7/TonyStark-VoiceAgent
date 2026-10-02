@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Copy the settings the hosted HUD needs from .env to the linked Vercel project,
 # then redeploy production so they take effect.
+# For macOS, Linux and Git Bash. In Windows PowerShell use vercel-env.ps1.
 #
 #   bash scripts/vercel-env.sh            upload and redeploy
 #   bash scripts/vercel-env.sh --dry-run  show what would be uploaded, change nothing
@@ -14,6 +15,11 @@ DRY_RUN=false
 [[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
 
 [[ -f .env ]] || { echo "No .env file here. Copy .env.example to .env first." >&2; exit 1; }
+vercel --version > /dev/null 2>&1 || {
+  echo "The Vercel CLI does not run in this shell." >&2
+  echo "On Windows (including WSL's bash), use: powershell -ExecutionPolicy Bypass -File scripts\vercel-env.ps1" >&2
+  exit 1
+}
 
 # Read one value from .env (strips quotes and Windows line endings).
 env_value() {
@@ -22,7 +28,7 @@ env_value() {
 }
 
 if [[ -z "$(env_value FRIDAY_ACCESS_CODE)" ]]; then
-  code="$(python -c 'import secrets; print(secrets.token_urlsafe(12))')"
+  code="$(head -c 12 /dev/urandom | base64 | tr '+/' '-_')"
   if $DRY_RUN; then
     echo "Would generate an access code and save it to .env as FRIDAY_ACCESS_CODE."
   else

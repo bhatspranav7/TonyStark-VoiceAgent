@@ -146,7 +146,15 @@ phone / any browser ──► HUD on Vercel ──► LiveKit Cloud ◄── fr
    npm i -g vercel && vercel login && vercel link
    ```
 
-2. Upload the LiveKit settings and an access code, and deploy:
+2. Upload the LiveKit settings and an access code, and deploy.
+
+   Windows PowerShell:
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File scriptsercel-env.ps1
+   ```
+
+   macOS, Linux or Git Bash:
 
    ```bash
    bash scripts/vercel-env.sh
@@ -154,7 +162,7 @@ phone / any browser ──► HUD on Vercel ──► LiveKit Cloud ◄── fr
 
    The script copies `LIVEKIT_URL`, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` from `.env`
    to Vercel, generates `FRIDAY_ACCESS_CODE` (saved in your `.env`) and redeploys.
-   `--dry-run` shows what it would do.
+   `-DryRun` (PowerShell) or `--dry-run` (bash) shows what it would do.
 
 3. Start `uv run friday-server` and `uv run friday-voice` on your computer, open the Vercel
    URL, click **ENGAGE** and enter the access code.
@@ -190,14 +198,14 @@ src/friday/
 │   └── feeds.py    RSS / Atom fetching and parsing
 └── hud/            index.html, hud.css, hud.js
 tests/              unit, integration, end-to-end and live tests
-scripts/            vercel-env.sh (push settings to Vercel)
+scripts/            vercel-env.ps1 / .sh (push settings to Vercel)
 ```
 
 ## Troubleshooting
 
 - **"FRIDAY has not joined"** — `uv run friday-voice` is not running, or its LiveKit keys differ from the server's.
 - **Red message on the HUD** — a provider rejected a request (wrong key, unknown voice, quota used up). The agent terminal has the detail.
-- **"Remote access is off"** on the hosted HUD — `FRIDAY_ACCESS_CODE` is not set on Vercel; run `bash scripts/vercel-env.sh`.
+- **"Remote access is off"** on the hosted HUD — `FRIDAY_ACCESS_CODE` is not set on Vercel; run the `scripts/vercel-env` script (see Deploying).
 - **No microphone** — the browser blocked it. Allow the mic for `127.0.0.1:8000`, or just type.
 - **Typed replies but no voice** — click the page once; browsers block audio until you interact.
 
